@@ -45,7 +45,7 @@ function protectionHeaders(req: any, res: any, next: (err?: any) => any) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 }
 
@@ -128,7 +128,7 @@ export async function createApp(
   for (const { route } of routes) {
     app[route.httpMethod.toLowerCase()](route.path, async (req: any, res: any, next: (err?: any) => any) => {
       try {
-        const ctx = new Context(req);
+        const ctx = new Context(req, route.controller.constructor.name, route.propertyKey);
         // TODO: better test this line.
         const response = await getResponse(route, ctx, services, appController);
         sendResponse(response, res);
