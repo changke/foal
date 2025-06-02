@@ -1,5 +1,5 @@
 // std
-import { strictEqual } from 'assert';
+import { deepStrictEqual, strictEqual } from 'assert';
 import { Buffer } from 'buffer';
 
 // 3p
@@ -16,15 +16,66 @@ import {
   dependency,
   Get,
   Head,
+  Hook,
   HttpResponseOK,
   OpenApi,
   Options,
   Patch,
   Post,
   Put,
-  ServiceManager
+  ServiceManager,
+  Logger,
 } from '../core';
-import { createApp, OPENAPI_SERVICE_ID } from './create-app';
+import { createApp, getHttpLogParamsDefault, OPENAPI_SERVICE_ID } from './create-app';
+import { mock } from 'node:test';
+
+describe('getHttpLogParamsDefault', () => {
+  context('the request has NOT been aborted', () => {
+    it('should return the request and response parameters.', () => {
+      const tokens = {
+        method: () => 'GET',
+        url: () => '/foobar',
+        status: () => '200',
+        res: () => '0',
+        'response-time': () => '0'
+      };
+
+      const actual = getHttpLogParamsDefault(tokens, {}, {});
+      const expected = {
+        method: 'GET',
+        url: '/foobar',
+        statusCode: 200,
+        contentLength: '0',
+        responseTime: 0
+      };
+
+      deepStrictEqual(actual, expected);
+    });
+  });
+
+  context('the request has been aborted', () => {
+    it('should return the request and response parameters.', () => {
+      const tokens = {
+        method: () => 'GET',
+        url: () => '/foobar',
+        status: () => undefined,
+        res: () => undefined,
+        'response-time': () => undefined
+      };
+
+      const actual = getHttpLogParamsDefault(tokens, {}, {});
+      const expected = {
+        method: 'GET',
+        url: '/foobar',
+        statusCode: null,
+        contentLength: null,
+        responseTime: null
+      };
+
+      deepStrictEqual(actual, expected);
+    });
+  });
+})
 
 describe('createApp', () => {
 
@@ -48,10 +99,14 @@ describe('createApp', () => {
   });
 
   afterEach(() => {
+    mock.reset();
     Config.remove('settings.staticPathPrefix');
     Config.remove('settings.debug');
     Config.remove('settings.bodyParser.limit');
     Config.remove('settings.cookieParser.secret');
+    Config.remove('settings.logger.logHttpRequests');
+    Config.remove('settings.logger.format');
+    Config.remove('settings.staticFiles.cacheControl');
   });
 
   const cookieSecret = 'strong-secret';
@@ -72,7 +127,6 @@ describe('createApp', () => {
       .get('/')
       .expect('X-Content-Type-Options', 'nosniff')
       .expect('X-Frame-Options', 'SAMEORIGIN')
-      .expect('X-XSS-Protection', '1; mode=block')
       .expect('Strict-Transport-Security', 'max-age=31536000; includeSubDomains')
       .expect('X-Custom-Header', 'foobar');
   });
@@ -101,7 +155,22 @@ describe('createApp', () => {
       .get('/hello-world.html')
       .expect(200, '<h1>Hello world!</h1>')
       .expect('Content-type', 'text/html; charset=UTF-8')
-      .expect('X-Content-Type-Options', 'nosniff');
+      .expect('X-Content-Type-Options', 'nosniff')
+      .expect('cache-control', 'public, max-age=0');
+  });
+
+  it('should allow to pass the cacheControl option to the static middleware.', async () => {
+    Config.set('settings.staticFiles.cacheControl', false);
+
+    const app = await createApp(class { });
+    await request(app)
+      .get('/hello-world.html')
+      .expect(200, '<h1>Hello world!</h1>')
+      .then(response => {
+        if (response.header['cache-control']) {
+          throw new Error('The header "cache-control" should not exist.');
+        }
+      });
   });
 
   it('should support custom path prefix when serving static files.', async () => {
@@ -311,6 +380,28 @@ describe('createApp', () => {
       .expect({ body: '{ me { name } }' });
   });
 
+  it('should parse incoming request bodies (application/xml)', async () => {
+    class MyController {
+      @Post('/foo')
+      post(ctx: Context) {
+        return new HttpResponseOK({ body: ctx.request.body });
+      }
+    }
+    const app = await createApp(MyController);
+
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <Request>
+        <Login>login</Login>
+        <Password>password</Password>
+    </Request>`;
+
+    return request(app)
+      .post('/foo')
+      .type('application/xml')
+      .send(xml)
+      .expect({ body: xml });
+  });
+
   it('should accept higher or lower request body size if this is specified in the configuration.', async () => {
     Config.set('settings.bodyParser.limit', 10);
 
@@ -487,9 +578,11 @@ describe('createApp', () => {
       .type('application/json')
       .send('{ "foo": "bar", }')
       .expect(400)
-      .expect({
-        body: '{ \"foo\": \"bar\", }',
-        message: 'Unexpected token } in JSON at position 16'
+      .then(response => {
+        deepStrictEqual(response.body, {
+          body: '{ \"foo\": \"bar\", }',
+          message: 'Expected double-quoted property name in JSON at position 16 (line 1 column 17)'
+        });
       });
   });
 
@@ -663,4 +756,266 @@ describe('createApp', () => {
     }
   });
 
+  context('given the configuration "settings.logger.logHttpRequests" is set to false', () => {
+    it('should NOT log the request.', async () => {
+      Config.set('settings.logger.logHttpRequests', false);
+
+      class AppController {
+        @Get('/a')
+        getA(ctx: Context) {
+          return new HttpResponseOK('a');
+        }
+      }
+
+      const serviceManager = new ServiceManager();
+
+      const logger = serviceManager.get(Logger);
+      const loggerMock = mock.method(logger, 'info', () => {}).mock;
+
+      const app = await createApp(AppController, {
+        serviceManager
+      });
+
+      await request(app)
+        .get('/a')
+        .expect(200);
+
+      strictEqual(loggerMock.callCount(), 0);
+    });
+  });
+
+  context('given the configuration "settings.logger.logHttpRequests" is set to true', () => {
+    it('should log the request with a detailed message and detail parameters.', async () => {
+      Config.set('settings.logger.logHttpRequests', true);
+
+      class AppController {
+        @Get('/a')
+        getA(ctx: Context) {
+          return new HttpResponseOK('a');
+        }
+      }
+
+      const serviceManager = new ServiceManager();
+
+      const logger = serviceManager.get(Logger);
+      const loggerMock = mock.method(logger, 'info', () => {}).mock;
+
+      const app = await createApp(AppController, {
+        serviceManager
+      });
+
+      await request(app)
+        .get('/a?apiKey=a_secret_api_key')
+        .expect(200);
+
+      strictEqual(loggerMock.callCount(), 1);
+
+      const message = loggerMock.calls[0].arguments[0];
+      const params = loggerMock.calls[0].arguments[1];
+
+      strictEqual(message, 'HTTP request - GET /a');
+      strictEqual(typeof params?.responseTime, 'number')
+
+      delete params?.responseTime;
+
+      deepStrictEqual(params, {
+        method: 'GET',
+        url: '/a',
+        statusCode: 200,
+        contentLength: '1',
+      });
+    });
+
+    it('should use the options.getHttpLogParams if provided', async () => {
+      Config.set('settings.logger.logHttpRequests', true);
+
+      class AppController {
+        @Get('/a')
+        getA(ctx: Context) {
+          return new HttpResponseOK('a');
+        }
+      }
+
+      const serviceManager = new ServiceManager();
+
+      const logger = serviceManager.get(Logger);
+      const loggerMock = mock.method(logger, 'info', () => {}).mock;
+
+      const app = await createApp(AppController, {
+        serviceManager,
+        getHttpLogParams: (tokens: any, req: any, res: any) => ({
+          method: tokens.method(req, res),
+          url: tokens.url(req, res).split('?')[0],
+          myCustomHeader: req.get('my-custom-header')
+        }),
+      });
+
+      await request(app)
+        .get('/a')
+        .set('my-custom-header', 'my-custom-value')
+        .expect(200);
+
+      strictEqual(loggerMock.callCount(), 1);
+
+      const message = loggerMock.calls[0].arguments[0];
+      const params = loggerMock.calls[0].arguments[1];
+
+      strictEqual(message, 'HTTP request - GET /a');
+
+      deepStrictEqual(params, {
+        method: 'GET',
+        url: '/a',
+        myCustomHeader: 'my-custom-value',
+      });
+    });
+  });
+
+  context('given the configuration "settings.logger.logHttpRequests" is not set', () => {
+    it('should behave like the configuration is set to true.', async () => {
+      class AppController {
+        @Get('/a')
+        getA(ctx: Context) {
+          return new HttpResponseOK('a');
+        }
+      }
+
+      const serviceManager = new ServiceManager();
+
+      const logger = serviceManager.get(Logger);
+      const loggerMock = mock.method(logger, 'info', () => {}).mock;
+
+      const app = await createApp(AppController, {
+        serviceManager
+      });
+
+      await request(app)
+        .get('/a')
+        .expect(200);
+
+      strictEqual(loggerMock.callCount(), 1);
+    });
+  });
+
+  it('should allow to add log context information.', async () => {
+    Config.set('settings.logger.format', 'json');
+
+    class AppController {
+      @dependency
+      logger: Logger;
+
+      @Get('/')
+      @Hook((ctx, services) => {
+        const logger = services.get(Logger);
+        logger.addLogContext({ foo: 'bar' });
+      })
+      getA(ctx: Context) {
+        this.logger.info('Hello world');
+        return new HttpResponseOK();
+      }
+    }
+
+    const serviceManager = new ServiceManager();
+
+    const consoleMock = mock.method(console, 'log', () => {}).mock;
+
+    const app = await createApp(AppController, {
+      serviceManager
+    });
+
+    await request(app)
+      .get('/')
+      .expect(200);
+
+    const messages = consoleMock.calls.map(call => JSON.parse(call.arguments[0]));
+
+    strictEqual(messages.some(message => message.foo === 'bar'), true);
+  });
+
+  context('given a "X-Request-ID" header is present in the request', () => {
+    it('should add the request ID to the request object.', async () => {
+      const requestId = 'a_request_id';
+
+      class AppController {
+        @Get('/')
+        get(ctx: Context) {
+          return new HttpResponseOK({
+            requestId: ctx.request.id
+          });
+        }
+      }
+
+      const serviceManager = new ServiceManager();
+      const app = await createApp(AppController, {
+        serviceManager
+      });
+
+      await request(app)
+        .get('/')
+        .set('X-Request-ID', requestId)
+        .expect(200)
+        .expect({
+          requestId,
+        });
+    });
+  });
+
+  context('given a "X-Request-ID" header is NOT present in the request', () => {
+    it('should add a request ID to the request object.', async () => {
+      class AppController {
+        @Get('/')
+        get(ctx: Context) {
+          return new HttpResponseOK({
+            requestId: ctx.request.id
+          });
+        }
+      }
+
+      const serviceManager = new ServiceManager();
+      const app = await createApp(AppController, {
+        serviceManager
+      });
+
+      await request(app)
+        .get('/')
+        .expect(200)
+        .expect(response => {
+          if (!response.body.requestId) {
+            throw new Error('The request ID should exist.');
+          }
+        });
+    });
+  });
+
+  it('should add the request ID to the log context.', async () => {
+    class AppController {
+      @Get('/')
+      get(ctx: Context) {
+        return new HttpResponseOK({
+          requestId: ctx.request.id
+        });
+      }
+    }
+
+    const serviceManager = new ServiceManager();
+    const logger = serviceManager.get(Logger);
+    const loggerMock = mock.method(logger, 'addLogContext', () => {}).mock;
+
+    const app = await createApp(AppController, {
+      serviceManager
+    });
+
+    let requestId: string|undefined;
+    await request(app)
+      .get('/')
+      .expect(200)
+      .then(response => {
+        requestId = response.body.requestId;
+      })
+
+    strictEqual(loggerMock.callCount(), 1);
+
+    const args = loggerMock.calls[0].arguments;
+
+    deepStrictEqual(args, [{ requestId }]);
+  });
 });

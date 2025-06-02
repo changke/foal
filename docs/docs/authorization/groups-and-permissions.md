@@ -41,12 +41,13 @@ async function main() {
 
 Create a new script with this command:
 ```
-foal generate script create-perm
+npx foal generate script create-perm
 ```
 
 Replace the content of the new created file `src/scripts/create-perm.ts` with the following:
 ```typescript
 // 3p
+import { Logger, ServiceManager } from '@foal/core';
 import { Permission } from '@foal/typeorm';
 
 // App
@@ -62,7 +63,7 @@ export const schema = {
   type: 'object',
 };
 
-export async function main(args: { codeName: string, name: string }) {
+export async function main(args: { codeName: string, name: string }, services: ServiceManager, logger: Logger) {
   const permission = new Permission();
   permission.codeName = args.codeName;
   permission.name = args.name;
@@ -70,11 +71,9 @@ export async function main(args: { codeName: string, name: string }) {
   await dataSource.initialize();
 
   try {
-    console.log(
-      await permission.save()
-    );
-  } catch (error: any) {
-    console.log(error.message);
+    await permission.save();
+
+    logger.info(`Permission created: ${permission.codeName}`);
   } finally {
     await dataSource.destroy();
   }
@@ -84,7 +83,7 @@ export async function main(args: { codeName: string, name: string }) {
 Then you can create a permission through the command line.
 ```sh
 npm run build
-foal run create-perm name="Permission to access the secret" codeName="access-secret"
+npx foal run create-perm name="Permission to access the secret" codeName="access-secret"
 ```
 
 ## Groups
@@ -125,12 +124,13 @@ async function main() {
 
 Create a new script with this command:
 ```
-foal generate script create-group
+npx foal generate script create-group
 ```
 
 Replace the content of the new created file `src/scripts/create-group.ts` with the following:
 ```typescript
 // 3p
+import { Logger, ServiceManager } from '@foal/core';
 import { Group, Permission } from '@foal/typeorm';
 
 // App
@@ -147,7 +147,7 @@ export const schema = {
   type: 'object',
 };
 
-export async function main(args: { codeName: string, name: string, permissions: string[] }) {
+export async function main(args: { codeName: string, name: string, permissions: string[] }, services: ServiceManager, logger: Logger) {
   const group = new Group();
   group.permissions = [];
   group.codeName = args.codeName;
@@ -159,17 +159,14 @@ export async function main(args: { codeName: string, name: string, permissions: 
     for (const codeName of args.permissions) {
       const permission = await Permission.findOneBy({ codeName });
       if (!permission) {
-        console.log(`No permission with the code name "${codeName}" was found.`);
-        return;
+        throw new Error(`No permission with the code name "${codeName}" was found.`);
       }
       group.permissions.push(permission);
     }
 
-    console.log(
-      await group.save()
-    );
-  } catch (error: any) {
-    console.log(error.message);
+    await group.save();
+
+    logger.info(`Group created: ${group.codeName}`);
   } finally {
     await dataSource.destroy();
   }
@@ -180,8 +177,8 @@ export async function main(args: { codeName: string, name: string, permissions: 
 Then you can create a group through the command line.
 ```sh
 npm run build
-foal run create-perm name="Permission to delete users" codeName="delete-users"
-foal run create-group name="Administrators" codeName="admin" permissions="[ \"delete-users\" ]"
+npx foal run create-perm name="Permission to delete users" codeName="delete-users"
+npx foal run create-group name="Administrators" codeName="admin" permissions="[ \"delete-users\" ]"
 ```
 
 ## Users
@@ -227,7 +224,7 @@ Replace the content of the new created file `src/scripts/create-user.ts` with th
 
 ```typescript
 // 3p
-import { hashPassword } from '@foal/core';
+import { hashPassword, Logger, ServiceManager } from '@foal/core';
 import { Group, Permission } from '@foal/typeorm';
 
 // App
@@ -246,7 +243,7 @@ export const schema = {
   type: 'object',
 };
 
-export async function main(args) {
+export async function main(args: any, services: ServiceManager, logger: Logger) {
   const user = new User();
   user.userPermissions = [];
   user.groups = [];
@@ -258,8 +255,7 @@ export async function main(args) {
   for (const codeName of args.userPermissions as string[]) {
     const permission = await Permission.findOneBy({ codeName });
     if (!permission) {
-      console.log(`No permission with the code name "${codeName}" was found.`);
-      return;
+      throw new Error(`No permission with the code name "${codeName}" was found.`);
     }
     user.userPermissions.push(permission);
   }
@@ -267,18 +263,15 @@ export async function main(args) {
   for (const codeName of args.groups as string[]) {
     const group = await Group.findOneBy({ codeName });
     if (!group) {
-      console.log(`No group with the code name "${codeName}" was found.`);
-      return;
+      throw new Error(`No group with the code name "${codeName}" was found.`);
     }
     user.groups.push(group);
   }
 
   try {
-    console.log(
-      await user.save()
-    );
-  } catch (error: any) {
-    console.log(error.message);
+    await user.save();
+
+    logger.info(`User created: ${user.id}`);
   } finally {
     await dataSource.destroy();
   }
@@ -289,7 +282,7 @@ Then you can create a user with their permissions and groups through the command
 
 ```sh
 npm run build
-foal run create-user userPermissions="[ \"my-first-perm\" ]" groups="[ \"my-group\" ]"
+npx foal run create-user userPermissions="[ \"my-first-perm\" ]" groups="[ \"my-group\" ]"
 ```
 
 ## Fetching a User with their Permissions

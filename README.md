@@ -55,19 +55,14 @@ First install [Node.Js and npm](https://nodejs.org/en/download/).
 ### Create a new app
 
 ```
-$ npm install -g @foal/cli
-$ foal createapp my-app
-$ cd my-app
-$ npm run dev
+npx @foal/cli createapp my-app
+cd my-app
+npm run dev
 ```
 
 The development server is started! Go to `http://localhost:3001` and find our welcoming page!
 
 :point_right: [Continue with the tutorial](https://foalts.org/docs) :seedling:
-
-## Sponsors
-
-[![sponsors](./sponsors.png)](https://github.com/sponsors/LoicPoullain)
 
 ## Backers
 

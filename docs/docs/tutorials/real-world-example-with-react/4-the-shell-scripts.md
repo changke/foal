@@ -14,7 +14,7 @@ Open the file and replace its content with the following:
 
 ```typescript
 // 3p
-import { hashPassword } from '@foal/core';
+import { hashPassword, Logger, ServiceManager } from '@foal/core';
 
 // App
 import { User } from '../app/entities';
@@ -31,7 +31,7 @@ export const schema = {
   type: 'object',
 };
 
-export async function main(args: { email: string, password: string, name?: string }) {
+export async function main(args: { email: string, password: string, name?: string }, services: ServiceManager, logger: Logger) {
   const user = new User();
   user.email = args.email;
   user.password = await hashPassword(args.password);
@@ -41,9 +41,9 @@ export async function main(args: { email: string, password: string, name?: strin
   await dataSource.initialize();
 
   try {
-    console.log(await user.save());
-  } catch (error: any) {
-    console.log(error.message);
+    await user.save();
+
+    logger.info(`User created: ${user.id}`);
   } finally {
     await dataSource.destroy();
   }
@@ -68,8 +68,8 @@ npm run build
 Then create two new users.
 
 ```bash
-foal run create-user email="john@foalts.org" password="john_password" name="John"
-foal run create-user email="mary@foalts.org" password="mary_password" name="Mary"
+npx foal run create-user email="john@foalts.org" password="john_password" name="John"
+npx foal run create-user email="mary@foalts.org" password="mary_password" name="Mary"
 ```
 
 > If you try to re-run one of these commands, you'll get the MySQL error below as the email key is unique.
@@ -81,12 +81,13 @@ foal run create-user email="mary@foalts.org" password="mary_password" name="Mary
 The `create-story` script is a bit more complex as `Story` has a many-to-one relation with `User`.
 
 ```bash
-foal generate script create-story
+npx foal generate script create-story
 ```
 
 Open the `create-story.ts` file and replace its content.
 
 ```typescript
+import { Logger, ServiceManager } from '@foal/core';
 import { Story, User } from '../app/entities';
 import { dataSource } from '../db';
 
@@ -101,7 +102,7 @@ export const schema = {
   type: 'object',
 };
 
-export async function main(args: { author: string, title: string, link: string }) {
+export async function main(args: { author: string, title: string, link: string }, services: ServiceManager, logger: Logger) {
   await dataSource.initialize();
 
   const user = await User.findOneByOrFail({ email: args.author });
@@ -112,9 +113,9 @@ export async function main(args: { author: string, title: string, link: string }
   story.link = args.link;
 
   try {
-    console.log(await story.save());
-  } catch (error: any) {
-    console.error(error);
+    await store.save();
+
+    logger.info(`Story created: ${story.id}`);
   } finally {
     await dataSource.destroy();
   }
@@ -135,7 +136,7 @@ npm run build
 And create new stories for each user.
 
 ```bash
-foal run create-story author="john@foalts.org" title="How to build a simple to-do list" link="https://foalts.org/docs/tutorials/simple-todo-list/1-installation"
-foal run create-story author="mary@foalts.org" title="FoalTS architecture overview" link="https://foalts.org/docs/architecture/architecture-overview"
-foal run create-story author="mary@foalts.org" title="Authentication with Foal" link="https://foalts.org/docs/authentication/quick-start"
+npx foal run create-story author="john@foalts.org" title="How to build a simple to-do list" link="https://foalts.org/docs/tutorials/simple-todo-list/1-installation"
+npx foal run create-story author="mary@foalts.org" title="FoalTS architecture overview" link="https://foalts.org/docs/architecture/architecture-overview"
+npx foal run create-story author="mary@foalts.org" title="Authentication with Foal" link="https://foalts.org/docs/authentication/quick-start"
 ```

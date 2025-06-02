@@ -29,9 +29,10 @@ interface IncomingMessage extends Readable {
 /**
  * Express Request interface.
  *
+ * @export
  * @interface Request
  */
-interface Request extends IncomingMessage {
+export interface Request extends IncomingMessage {
   app: any;
   baseUrl: string;
   body: any;
@@ -57,6 +58,9 @@ interface Request extends IncomingMessage {
   xhr: boolean;
   // This line has been added based on @types/express in order not to make the url possibly undefined.
   url: string;
+
+  // Extra attribute added for Foal
+  id: string;
 
   // This line has been added based on @types/express but it is not present in Express official documentation.
   accepts(): string[];
@@ -111,7 +115,7 @@ interface Request extends IncomingMessage {
  * @class Context
  * @template User
  */
-export class Context<User = { [key: string]: any } | null, ContextState = { [key: string]: any }> {
+export class Context<User = { [key: string]: any } | null, ContextState extends { [key: string]: any } = {}> {
   readonly request: Request;
   session: Session | null;
 

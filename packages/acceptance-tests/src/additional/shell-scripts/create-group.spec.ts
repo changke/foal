@@ -8,6 +8,7 @@ import Ajv from 'ajv';
 import { Group, Permission } from '@foal/typeorm';
 import { main as createGroup, schema } from './create-group';
 import { createAndInitializeDataSource } from '../../common';
+import { Logger, ServiceManager } from '@foal/core';
 
 describe('[Shell scripts] create-perm', () => {
 
@@ -21,7 +22,7 @@ describe('[Shell scripts] create-perm', () => {
   });
 
   it('should work as expected.', async () => {
-    // foal run create-group name="Administrators" codeName="admin" permissions='[ "delete-users" ]'
+    // npx foal run create-group name="Administrators" codeName="admin" permissions='[ "delete-users" ]'
     const args = {
       codeName: 'admin',
       name: 'Administrators',
@@ -35,7 +36,10 @@ describe('[Shell scripts] create-perm', () => {
       });
     }
 
-    await createGroup(args);
+    const services = new ServiceManager();
+    const logger = services.get(Logger);
+
+    await createGroup(args, services, logger);
 
     const dataSource = await createAndInitializeDataSource([ Permission, Group ], { dropSchema: false });
 

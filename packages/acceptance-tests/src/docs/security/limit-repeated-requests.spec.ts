@@ -1,5 +1,5 @@
 // 3p
-import { Config, createApp, displayServerURL } from '@foal/core';
+import { Config, createApp, Logger, ServiceManager } from '@foal/core';
 import * as express from 'express';
 import * as rateLimit from 'express-rate-limit';
 
@@ -20,7 +20,6 @@ it('[Docs] Cookbook > Limit Repeated Requests', () => {
         res.removeHeader('X-Powered-By');
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-        res.setHeader('X-XSS-Protection', '1; mode=block');
         res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 
         // Send the response with the default statusCode and message from rateLimit
@@ -28,9 +27,12 @@ it('[Docs] Cookbook > Limit Repeated Requests', () => {
       }
     }));
 
+    const serviceManager = new ServiceManager();
+    const logger = serviceManager.get(Logger);
+
     const app = await createApp(AppController, { expressInstance: expressApp });
 
     const port = Config.get('port', 'number', 3001);
-    app.listen(port, () => displayServerURL(port));
+    app.listen(port, () => logger.info(`Listening on port ${port}...`));
   }
 });

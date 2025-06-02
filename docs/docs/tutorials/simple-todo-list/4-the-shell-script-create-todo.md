@@ -11,7 +11,7 @@ You could run the command line interface of your database (in that case *SQLite*
 That's why you are going to create and use a *shell script* instead.
 
 ```sh
-foal generate script create-todo
+npx foal generate script create-todo
 ```
 
 A *shell script* is a piece of code intended to be called from the command line. It has access to all the components of your application, including your models. A shell script is divided in two parts:
@@ -22,6 +22,9 @@ A *shell script* is a piece of code intended to be called from the command line.
 Open the new generated file in the `src/scripts` directory and update its content.
 
 ```typescript
+// 3p
+import { Logger, ServiceManager } from '@foal/core';
+
 // App
 import { Todo } from '../app/entities';
 import { dataSource } from '../db';
@@ -34,7 +37,7 @@ export const schema = {
   type: 'object',
 };
 
-export async function main(args: { text: string }) {
+export async function main(args: { text: string }, services: ServiceManager, logger: Logger) {
   // Connect to the database.
   await dataSource.initialize();
 
@@ -44,9 +47,9 @@ export async function main(args: { text: string }) {
     todo.text = args.text;
 
     // Save the task in the database and then display it in the console.
-    console.log(await todo.save());
-  } catch (error: any) {
-    console.log(error.message);
+    await todo.save();
+
+    logger.info(`Todo created: ${JSON.stringify(todo, null, 2)}`);
   } finally {
     // Close the connection to the database.
     await dataSource.destroy();
@@ -64,11 +67,11 @@ npm run build
 Then run the script to create tasks in the database.
 
 ```sh
-foal run create-todo text="Read the docs"
-foal run create-todo text="Create my first application"
-foal run create-todo text="Write tests"
+npx foal run create-todo text="Read the docs"
+npx foal run create-todo text="Create my first application"
+npx foal run create-todo text="Write tests"
 ```
 
 > Note that if you try to create a new to-do without specifying the text argument, you'll get the error below.
 >
-> `Error: The command line arguments should have required property 'text'.`
+> `Script error: arguments must have required property 'text'.`

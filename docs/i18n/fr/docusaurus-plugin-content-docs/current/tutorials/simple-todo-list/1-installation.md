@@ -8,7 +8,7 @@ Dans ce tutoriel, vous apprendrez comment créer une application web de base ave
 
 > **Configuration requise:**
 >
-> [Node.js](https://nodejs.org/en/) 18 ou supérieur
+> [Node.js](https://nodejs.org/en/) 22 ou supérieur
 
 ## Créer un Nouveau Projet
 
@@ -28,7 +28,7 @@ foal createapp my-app
 
 Vous avez des difficultés à installer Foal ? 👉 Consultez notre [page de dépannage](./installation-troubleshooting).
 
-:::note
+:::
 
 Cette commande génère un nouveau répertoire avec la structure de base de la nouvelle application. Elle installe également toutes les dépendances. Regardons ce que `createapp` a créé :
 

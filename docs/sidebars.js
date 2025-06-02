@@ -72,7 +72,7 @@ module.exports = {
         ]),
         'common/serialization',
         'common/logging',
-        'common/task-scheduling',
+        'common/async-tasks',
         'common/rest-blueprints',
         'common/openapi-and-swagger-ui',
         'common/graphql',
@@ -138,6 +138,7 @@ module.exports = {
       'comparison-with-other-frameworks/express-fastify',
     ]),
     expandedCategory('Upgrading', [
+      link('To v5', 'https://github.com/FoalTS/foal/releases/tag/v5.0.0'),
       link('To v4', 'https://github.com/FoalTS/foal/releases/tag/v4.0.0'),
       link('To v3', 'https://foalts.org/docs/3.x/upgrade-to-v3/'),
       link('To v2', 'https://foalts.org/docs/2.x/upgrade-to-v2/'),

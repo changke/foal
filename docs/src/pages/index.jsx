@@ -54,17 +54,34 @@ function CompanyLogos() {
           Sponsored by
         </p>
         <div className="tw-flex tw-justify-center tw-flex-wrap">
-          <CompanyLogo imageSrc={useBaseUrl('img/trusted-by/erkoware_logo.svg')} companyName="erkoware solutions" href="https://www.erkoware.de/" />
+          <CompanyLogo imageSrc={useBaseUrl('img/trusted-by/linito.png')} companyName="Linito" href="https://linito.io" />
           <PlusLogo />
-          {/* <CompanyLogo imageSrc="https://tailwindui.com/img/logos/mirage-logo-gray-400.svg" />
-          <CompanyLogo imageSrc="https://tailwindui.com/img/logos/tuple-logo-gray-400.svg" />
-          <CompanyLogo imageSrc="https://tailwindui.com/img/logos/laravel-logo-gray-400.svg" />
-          <CompanyLogo imageSrc="https://tailwindui.com/img/logos/statickit-logo-gray-400.svg" />
-          <CompanyLogo imageSrc="https://tailwindui.com/img/logos/statamic-logo-gray-400.svg" /> */}
         </div>
       </div>
     </div>
   )
+}
+
+function sendGA4EventOnLink(
+  event,
+  eventName,
+) {
+  event.preventDefault()
+
+  window.dataLayer?.push([
+    'event',
+    eventName,
+    {
+      event_callback: function () {
+        window.location.href
+      },
+    },
+  ])
+
+  // Fallback
+  setTimeout(() => {
+    window.location.href = event.target.href
+  }, 300)
 }
 
 function Home() {
@@ -84,6 +101,7 @@ function Home() {
           </h3>
           <div>
             <Link
+              onClick={(event) => sendGA4EventOnLink(event, 'click_get_started')}
               className={styles.btn}
               to={useBaseUrl("docs/tutorials/simple-todo-list/1-installation")}>
               Get started

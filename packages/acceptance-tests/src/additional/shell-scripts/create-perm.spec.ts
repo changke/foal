@@ -5,6 +5,7 @@ import Ajv from 'ajv';
 import { Permission } from '@foal/typeorm';
 import { main as createPerm, schema } from './create-perm';
 import { createAndInitializeDataSource } from '../../common';
+import { Logger, ServiceManager } from '@foal/core';
 
 describe('[Shell scripts] create-perm', () => {
 
@@ -15,7 +16,7 @@ describe('[Shell scripts] create-perm', () => {
   });
 
   it('should work as expected.', async () => {
-    // foal run create-perm name="Permission to access the secret" codeName="access-secret"
+    // npx foal run create-perm name="Permission to access the secret" codeName="access-secret"
     const args = {
       codeName: 'access-secret',
       name: 'Permission to access the secret'
@@ -28,7 +29,10 @@ describe('[Shell scripts] create-perm', () => {
       });
     }
 
-    await createPerm(args);
+    const services = new ServiceManager();
+    const logger = services.get(Logger);
+
+    await createPerm(args, services, logger);
 
     const dataSource = await createAndInitializeDataSource([ Permission ], { dropSchema: false });
 

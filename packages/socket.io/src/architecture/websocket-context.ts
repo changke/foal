@@ -17,12 +17,14 @@ import { Session } from '@foal/core';
  * @template ContextSession
  * @template ContextState
  */
-export class WebsocketContext<User = { [key: string]: any } | null, ContextState = { [key: string]: any }> {
+export class WebsocketContext<User = { [key: string]: any } | null, ContextState extends { [key: string]: any } = {}> {
   readonly socket: Socket;
   session: Session | null;
 
   user: User;
   readonly state: ContextState;
+
+  messageId: string | null;
 
   readonly controllerName: string;
   readonly controllerMethodName: string;
@@ -42,6 +44,8 @@ export class WebsocketContext<User = { [key: string]: any } | null, ContextState
 
     this.user = null as any;
     this.state = {} as any;
+
+    this.messageId = null;
 
     this.controllerName = controllerName;
     this.controllerMethodName = controllerMethodName;

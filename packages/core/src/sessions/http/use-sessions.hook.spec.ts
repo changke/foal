@@ -1,5 +1,6 @@
 // std
 import { deepStrictEqual, doesNotReject, rejects, strictEqual } from 'assert';
+import { mock } from 'node:test';
 
 // FoalTS
 import {
@@ -21,7 +22,8 @@ import {
   isHttpResponseForbidden,
   isHttpResponseRedirect,
   isHttpResponseUnauthorized,
-  ServiceManager
+  ServiceManager,
+  Logger,
 } from '../../core';
 import {
   SESSION_DEFAULT_COOKIE_NAME,
@@ -513,7 +515,7 @@ describe('UseSessions', () => {
       it('should throw an error if the session state has no CSRF token.', async () => {
         ctx = createContextWithPostMethod({}, { [SESSION_DEFAULT_COOKIE_NAME]: anonymousSessionID });
         return rejects(
-          () => hook(ctx, services),
+          async () => { await hook(ctx, services) },
           {
             message: 'Unexpected error: the session content does not have a "csrfToken" field. '
               + 'Are you sure you created the session with "createSession"?'
@@ -605,11 +607,33 @@ describe('UseSessions', () => {
         strictEqual(ctx.user, null);
       });
 
+      it('and add null as user ID to the log context.', async () => {
+        const logger = services.get(Logger);
+        const loggerMock = mock.method(logger, 'addLogContext', () => {}).mock;
+
+        await hook(ctx, services);
+
+        strictEqual(loggerMock.callCount(), 1);
+
+        deepStrictEqual(loggerMock.calls[0].arguments, [{ userId: null }]);
+      });
+
     });
 
     context('given the session has a user ID', () => {
 
       beforeEach(() => ctx = createContext({ Authorization: `Bearer ${authenticatedSessionID}`}));
+
+      it('and add null as user ID to the log context.', async () => {
+        const logger = services.get(Logger);
+        const loggerMock = mock.method(logger, 'addLogContext', () => {}).mock;
+
+        await hook(ctx, services);
+
+        strictEqual(loggerMock.callCount(), 1);
+
+        deepStrictEqual(loggerMock.calls[0].arguments, [{ userId }]);
+      });
 
       context('given options.user is not defined', () => {
 

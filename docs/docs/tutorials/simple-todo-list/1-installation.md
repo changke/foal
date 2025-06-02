@@ -8,7 +8,7 @@ In this tutorial you will learn how to create a basic web application with FoalT
 
 > **Requirements:**
 >
-> [Node.js](https://nodejs.org/en/) 18 or greater
+> [Node.js](https://nodejs.org/en/) 22 or greater
 
 ## Create a New Project
 
@@ -21,14 +21,14 @@ npm install -g @foal/cli
 Then create a new application.
 
 ```sh
-foal createapp my-app
+npx @foal/cli createapp my-app
 ```
 
 :::note
 
 Having trouble installing Foal? 👉 Checkout our [troubleshooting page](./installation-troubleshooting).
 
-:::note
+:::
 
 This command generates a new directory with the basic structure of the new application. It also installs all the dependencies. Let's look at what `createapp` created:
 

@@ -8,7 +8,7 @@ En este tutorial aprenderá a crear una aplicación web básica con FoalTS. La a
 
 > **Requisitos:**
 >
-> [Node.js](https://nodejs.org/en/) 18 o superior
+> [Node.js](https://nodejs.org/en/) 22 o superior
 
 ## Crear un Nuevo Proyecto
 
@@ -28,7 +28,7 @@ foal createapp my-app
 
 ¿Tiene problemas para instalar Foal? 👉 Revise nuestra [página de solución de problemas](./installation-troubleshooting).
 
-:::note
+:::
 
 Este comando genera un nuevo directorio con la estructura básica de la nueva aplicación. También instala todas las dependencias. Veamos lo que ha creado `createapp`:
 

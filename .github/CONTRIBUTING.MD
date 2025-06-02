@@ -39,13 +39,13 @@ The framework development environment uses [lerna](https://lerna.js.org/) for ma
     ```sh
     npm run start-docker # use `npm run stop-docker` to stop them 
     ```
-3. Install the root dependencies.
+3. Install all dependencies.
     ```
     npm install
     ```
-4. Install the dependencies of each package and build each package.
+4. Build packages.
     ```
-    npm run bootstrap
+    npx lerna run build
     ```
 5. Check code format.
     ```
@@ -136,8 +136,9 @@ All of major releases are supported for at least 18 months.
 
 | Release | Status | Active Start | Maintenance Start | End-of-life | Node versions | TS min version |
 | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| 4.x | *Active* | 2023-09-06 |  |  | 18, 20 | 4.9 |
-| 3.x | *Maintenance* | 2022-10-28 | 2023-09-06 | 2024-03-06 | 16, 18 | 4.7 |
+| 5.x | *Active* | 2025-05-27 |  |  | 22 | 5.5 |
+| 4.x | *Maintenance* | 2023-09-06 | 2025-05-27 | 2025-11-27 | 18, 20 | 4.9 |
+| 3.x | *End-of-Life* | 2022-10-28 | 2023-09-06 | 2024-03-06 | 16, 18 | 4.7 |
 | 2.x | *End-of-Life* | 2020-12-03 | 2022-10-28 | 2023-04-30 | 10, 12, 14 | 4.0 |
 | 1.x | *End-of-Life* | 2019-07-11 | 2020-12-03 | 2021-05-31 | 8, 10 | 3.5 |
 | 0.8 | *End-of-Life* | 2019-02-16 | - | 2019-07-11 | 8, 10 | 2.9 |
@@ -146,7 +147,7 @@ All of major releases are supported for at least 18 months.
 
 ### `@foal/cli` Package Structure
 
-The directory `src/generate/` contains the source code of the commands `foal createapp` and `foal generate`.
+The directory `src/generate/` contains the source code of the commands `npx @foal/cli createapp` and `npx foal generate`.
 
 Here is the list of its sub-directories:
 

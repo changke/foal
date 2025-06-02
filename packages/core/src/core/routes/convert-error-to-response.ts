@@ -1,13 +1,18 @@
-import { renderError } from '../../common';
+import { renderError } from '../templates';
 import { IAppController } from '../app.controller.interface';
 import { Config } from '../config';
 import { Context, HttpResponse } from '../http';
 
 export async function convertErrorToResponse(
-  error: Error, ctx: Context, appController: IAppController, log = console.error
+  error: Error,
+  ctx: Context,
+  appController: IAppController,
+  logger: {
+    error: (message: string, params: { error: Error }) => void
+  }
 ): Promise<HttpResponse> {
   if (Config.get('settings.logErrors', 'boolean', true)) {
-    log(error.stack);
+    logger.error(error.message, { error });
   }
 
   if (appController.handleError) {

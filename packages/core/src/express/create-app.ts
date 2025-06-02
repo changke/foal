@@ -1,7 +1,10 @@
+// std
+import { randomUUID } from 'node:crypto';
+
 // 3p
 import * as cookieParser from 'cookie-parser';
 import * as express from 'express';
-import * as logger from 'morgan';
+import * as morgan from 'morgan';
 
 // FoalTS
 import {
@@ -13,6 +16,8 @@ import {
   makeControllerRoutes,
   OpenApi,
   ServiceManager,
+  httpRequestMessagePrefix,
+  Logger,
 } from '../core';
 import { sendResponse } from './send-response';
 
@@ -24,6 +29,7 @@ type ErrorMiddleware = (err: any, req: any, res: any, next: (err?: any) => any) 
 export interface CreateAppOptions {
   expressInstance?: any;
   serviceManager?: ServiceManager;
+  getHttpLogParams?: (tokens: any, req: any, res: any) => Record<string, any>;
   preMiddlewares?: (Middleware|ErrorMiddleware)[];
   afterPreMiddlewares?: (Middleware|ErrorMiddleware)[];
   postMiddlewares?: (Middleware|ErrorMiddleware)[];
@@ -44,9 +50,22 @@ function protectionHeaders(req: any, res: any, next: (err?: any) => any) {
   res.removeHeader('X-Powered-By');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
+}
+
+export function getHttpLogParamsDefault(tokens: any, req: any, res: any): Record<string, any> {
+  const statusCode = tokens.status(req, res);
+  const contentLength = tokens.res(req, res, 'content-length');
+  const responseTime = tokens['response-time'](req, res);
+
+  return {
+    method: tokens.method(req, res),
+    url: tokens.url(req, res).split('?')[0],
+    statusCode: statusCode === undefined ? null : parseInt(statusCode, 10),
+    contentLength: contentLength === undefined ? null : contentLength,
+    responseTime: responseTime === undefined ? null : parseFloat(responseTime),
+  };
 }
 
 /**
@@ -79,14 +98,43 @@ export async function createApp(
     app.use(middleware);
   }
 
+  // Create the service and controller manager.
+  const services = options.serviceManager || new ServiceManager();
+  app.foal = { services };
+
+  // Retrieve the logger.
+  const logger = services.get(Logger);
+
+  // Allow to add log context.
+  app.use((req: any, res: any, next: (err?: any) => any) => {
+    logger.initLogContext(next);
+  });
+
+  // Generate a unique ID for each request.
+  app.use((req: any, res: any, next: (err?: any) => any) => {
+    const requestId = req.get('x-request-id') || randomUUID();
+
+    req.id = requestId;
+    logger.addLogContext({ requestId });
+
+    next();
+  });
+
   // Log requests.
-  const loggerFormat = Config.get(
-    'settings.loggerFormat',
-    'string',
-    '[:date] ":method :url HTTP/:http-version" :status - :response-time ms'
-  );
-  if (loggerFormat !== 'none') {
-    app.use(logger(loggerFormat));
+  const shouldLogHttpRequests = Config.get('settings.logger.logHttpRequests', 'boolean', true);
+  if (shouldLogHttpRequests) {
+    const getHttpLogParams = options.getHttpLogParams || getHttpLogParamsDefault;
+    app.use(morgan(
+      (tokens: any, req: any, res: any) => JSON.stringify(getHttpLogParams(tokens, req, res)),
+      {
+        stream: {
+          write: (message: string) => {
+            const data = JSON.parse(message);
+            logger.info(`${httpRequestMessagePrefix}${data.method} ${data.url}`, data);
+          },
+        },
+      }
+    ))
   }
 
   app.use(protectionHeaders);
@@ -94,7 +142,9 @@ export async function createApp(
   // Serve static files.
   app.use(
     Config.get('settings.staticPathPrefix', 'string', ''),
-    express.static(Config.get('settings.staticPath', 'string', 'public'))
+    express.static(Config.get('settings.staticPath', 'string', 'public'), {
+      cacheControl: Config.get('settings.staticFiles.cacheControl', 'boolean')
+    })
   );
 
   // Parse request body.
@@ -102,7 +152,7 @@ export async function createApp(
   app.use(express.json({ limit }));
   app.use(handleJsonErrors);
   app.use(express.urlencoded({ extended: false, limit }));
-  app.use(express.text({ type: ['text/*', 'application/graphql'], limit }));
+  app.use(express.text({ type: ['text/*', 'application/graphql', 'application/xml'], limit }));
 
   // Parse cookies.
   app.use(cookieParser(Config.get('settings.cookieParser.secret', 'string')));
@@ -111,10 +161,6 @@ export async function createApp(
   for (const middleware of options.afterPreMiddlewares || []) {
     app.use(middleware);
   }
-
-  // Create the service and controller manager.
-  const services = options.serviceManager || new ServiceManager();
-  app.foal = { services };
 
   // Inject the OpenAPI service with an ID string to avoid duplicated singletons
   // across several npm packages.
@@ -131,7 +177,7 @@ export async function createApp(
         const ctx = new Context(req, route.controller.constructor.name, route.propertyKey);
         // TODO: better test this line.
         const response = await getResponse(route, ctx, services, appController);
-        sendResponse(response, res);
+        sendResponse(response, res, logger);
       } catch (error: any) {
         // This try/catch will never be called: the `getResponse` function catches any errors
         // thrown or rejected in the application and converts it into a response.

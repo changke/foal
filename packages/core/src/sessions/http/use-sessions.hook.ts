@@ -15,7 +15,8 @@ import {
   HttpResponseUnauthorized,
   IApiSecurityScheme,
   isHttpResponseInternalServerError,
-  ServiceManager
+  ServiceManager,
+  Logger
 } from '../../core';
 import { SESSION_DEFAULT_COOKIE_NAME } from './constants';
 import { checkUserIdType } from './check-user-id-type';
@@ -141,6 +142,9 @@ export function UseSessions(options: UseSessionOptions = {}): HookDecorator {
     ctx.session = session;
 
     /* Set ctx.user */
+
+    const logger = services.get(Logger);
+    logger.addLogContext({ userId: session.userId });
 
     if (session.userId !== null && options.user) {
       const userId = checkUserIdType(session.userId, options.userIdType);

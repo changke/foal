@@ -1,13 +1,13 @@
 /**
  * FoalTS
- * Copyright(c) 2017-2022 Loïc Poullain <loic.poullain@centraliens.net>
+ * Copyright(c) 2017-2025 Loïc Poullain
  * Released under the MIT License.
  */
 
 import 'source-map-support/register';
 
 // 3p
-import { Config, createApp, displayServerURL } from '@foal/core';
+import { Config, createApp, Logger, ServiceManager } from '@foal/core';
 
 // App
 import { AppController } from './app/app.controller';
@@ -16,10 +16,13 @@ import { dataSource } from './db';
 async function main() {
   await dataSource.initialize();
 
-  const app = await createApp(AppController);
+  const serviceManager = new ServiceManager();
+  const logger = serviceManager.get(Logger);
+
+  const app = await createApp(AppController, { serviceManager });
 
   const port = Config.get('port', 'number', 3001);
-  app.listen(port, () => displayServerURL(port));
+  app.listen(port, () => logger.info(`Listening on port ${port}...`));
 }
 
 main()

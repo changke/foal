@@ -1,3 +1,4 @@
+import { Logger } from '../logging';
 import { IAppController } from '../app.controller.interface';
 import { HookPostFunction } from '../hooks';
 import { Context, HttpResponse, isHttpResponse } from '../http';
@@ -8,6 +9,8 @@ import { Route } from './route.interface';
 export async function getResponse(
   route: Route, ctx: Context, services: ServiceManager, appController: IAppController
 ): Promise<HttpResponse> {
+  const logger = services.get(Logger);
+
   let response: undefined | HttpResponse;
 
   const hookPostFunctions: HookPostFunction[] = [];
@@ -17,7 +20,7 @@ export async function getResponse(
     try {
       result = await hook(ctx, services);
     } catch (error: any) {
-      result = await convertErrorToResponse(error, ctx, appController);
+      result = await convertErrorToResponse(error, ctx, appController, logger);
     }
     if (isHttpResponse(result)) {
       response = result;
@@ -29,22 +32,22 @@ export async function getResponse(
 
   if (!isHttpResponse(response)) {
     try {
-      response = await route.controller[route.propertyKey](ctx, ctx.request.params, ctx.request.body);
+      response = await route.controller[route.propertyKey](ctx, ctx.request);
     } catch (error: any) {
-      response = await convertErrorToResponse(error, ctx, appController);
+      response = await convertErrorToResponse(error, ctx, appController, logger);
     }
   }
 
   if (!isHttpResponse(response)) {
     const error = new Error(`The controller method "${route.propertyKey}" should return an HttpResponse.`);
-    response = await convertErrorToResponse(error, ctx, appController);
+    response = await convertErrorToResponse(error, ctx, appController, logger);
   }
 
   for (const postFn of hookPostFunctions) {
     try {
       await postFn(response);
     } catch (error: any) {
-      response = await convertErrorToResponse(error, ctx, appController);
+      response = await convertErrorToResponse(error, ctx, appController, logger);
     }
   }
 

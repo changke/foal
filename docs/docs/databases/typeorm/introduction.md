@@ -3,10 +3,6 @@ title: TypeORM
 sidebar_label: Introduction
 ---
 
-import Tabs from '@theme/Tabs';
-import TabItem from '@theme/TabItem';
-
-
 *A simple model:*
 ```typescript
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
@@ -63,7 +59,7 @@ When creating a new project, an `SQLite` database is used by default as it does 
 ### Packages
 
 ```
-npm install typeorm@0.3.17 @foal/typeorm
+npm install typeorm@0.3.24 @foal/typeorm
 ```
 
 Two packages are required to use TypeORM with FoalTS:
@@ -78,33 +74,7 @@ Two packages are required to use TypeORM with FoalTS:
 npm install pg
 ```
 
-*config/default.{json|yml|js}*
-
-<Tabs
-  defaultValue="yaml"
-  values={[
-    {label: 'YAML', value: 'yaml'},
-    {label: 'JSON', value: 'json'},
-    {label: 'JS', value: 'js'},
-  ]}
->
-<TabItem value="yaml">
-
-```yaml
-# ...
-
-database:
-  type: postgres
-  host: localhost
-  port: 5432
-  username: root
-  password: password
-  database: my-db
-```
-
-</TabItem>
-<TabItem value="json">
-
+*config/default.json*
 ```json
 {
   // ...
@@ -120,59 +90,13 @@ database:
 }
 ```
 
-</TabItem>
-<TabItem value="js">
-
-```javascript
-module.exports = {
-  // ...
-
-  database: {
-    type: "postgres",
-    host: "localhost",
-    port: 5432,
-    username: "root",
-    password: "password",
-    database: "my-db"
-  }
-}
-```
-
-</TabItem>
-</Tabs>
-
 ### MySQL
 
 ```sh
 npm install mysql
 ```
 
-*config/default.{json|yml|js}*
-
-<Tabs
-  defaultValue="yaml"
-  values={[
-    {label: 'YAML', value: 'yaml'},
-    {label: 'JSON', value: 'json'},
-    {label: 'JS', value: 'js'},
-  ]}
->
-<TabItem value="yaml">
-
-```yaml
-# ...
-
-database:
-  type: mysql
-  host: localhost
-  port: 3306
-  username: root
-  password: password
-  database: my-db
-```
-
-</TabItem>
-<TabItem value="json">
+*config/default.json*
 
 ```json
 {
@@ -188,27 +112,6 @@ database:
   }
 }
 ```
-
-</TabItem>
-<TabItem value="js">
-
-```javascript
-module.exports = {
-  // ...
-
-  database: {
-    type: "mysql",
-    host: "localhost",
-    port: 3306,
-    username: "root",
-    password: "password",
-    database: "my-db"
-  }
-}
-```
-
-</TabItem>
-</Tabs>
 
 ## Configuration and Testing
 

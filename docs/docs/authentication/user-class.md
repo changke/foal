@@ -37,8 +37,7 @@ import { User } from './src/app/entities';
 async function main() {
   const user = new User();
   user.foo = 1;
-  await user.save(); 1
-  });
+  await user.save();
 }
 ```
 
@@ -48,7 +47,7 @@ You can use the `create-user` shell script (located in `src/scripts`) to create 
 
 ```sh
 npm run build
-foal run create-user
+npx foal run create-user
 ```
 
 ## Example (email and password)
@@ -96,7 +95,7 @@ Go to `src/scripts/create-user.ts` and replace its content with the following li
 
 ```typescript
 // 3p
-import { hashPassword } from '@foal/core';
+import { hashPassword, Logger, ServiceManager } from '@foal/core';
 
 // App
 import { User } from '../app/entities';
@@ -112,7 +111,7 @@ export const schema = {
   type: 'object',
 };
 
-export async function main(args) {
+export async function main(args: any, services: ServiceManager, logger: Logger) {
   await dataSource.initialize();
 
   try {
@@ -120,9 +119,9 @@ export async function main(args) {
     user.email = args.email;
     user.password = await hashPassword(args.password);
 
-    console.log(await user.save());
-  } catch (error: any) {
-    console.error(error.message);
+    await user.save();
+
+    logger.info(`User created: ${user.id}`)
   } finally {
     await dataSource.destroy();
   }
@@ -134,7 +133,7 @@ You can now create a new user with these commands:
 
 ```sh
 npm run build
-foal run create-user email=mary@foalts.org password=mary_password
+npx foal run create-user email=mary@foalts.org password=mary_password
 ```
 
 ## Using another ORM/ODM

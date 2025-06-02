@@ -3,8 +3,7 @@ import { URL, URLSearchParams } from 'url';
 import * as crypto from 'crypto';
 
 // 3p
-import { Config, Context, generateToken, HttpResponseRedirect, convertBase64ToBase64url, CookieOptions } from '@foal/core';
-import * as fetch from 'node-fetch';
+import { Config, Context, generateToken, HttpResponseRedirect, convertBase64ToBase64url, CookieOptions, HttpResponseOK } from '@foal/core';
 
 /**
  * Tokens returned by an OAuth2 authorization server.
@@ -114,8 +113,9 @@ export interface ObjectType {
  * @class AbstractProvider
  * @template AuthParameters - Additional parameters to pass to the auth endpoint.
  * @template UserInfoParameters - Additional parameters to pass when retrieving user information.
+ * @template UserInfo - Type of the user information.
  */
-export abstract class AbstractProvider<AuthParameters extends ObjectType, UserInfoParameters extends ObjectType> {
+export abstract class AbstractProvider<AuthParameters extends ObjectType, UserInfoParameters extends ObjectType, UserInfo = any> {
 
   /**
    * Configuration paths from which the client ID, client secret and redirect URI must be retrieved.
@@ -232,20 +232,25 @@ export abstract class AbstractProvider<AuthParameters extends ObjectType, UserIn
    * @abstract
    * @param {SocialTokens} tokens - Tokens returned by the authorization server. It contains at least an access token.
    * @param {UserInfoParameters} [params] - Additional parameters to pass to the function.
-   * @returns {*} The user information.
+   * @returns {UserInfo | Promise<UserInfo>} The user information.
    * @memberof AbstractProvider
    */
-  abstract getUserInfoFromTokens(tokens: SocialTokens, params?: UserInfoParameters): any;
+  abstract getUserInfoFromTokens(tokens: SocialTokens, params?: UserInfoParameters): UserInfo | Promise<UserInfo>;
 
   /**
-   * Returns an HttpResponseRedirect object to use to redirect the user to the social provider's authorization page.
+   * Returns an HttpResponseOK or HttpResponseRedirect object to redirect the user to the social provider's authorization page.
+   *
+   * If the isRedirection parameter is undefined or set to false, the function returns an HttpResponseOK object. Its body contains the URL of the consent page.
+   *
+   * If the isRedirection parameter is set to true, the function returns an HttpResponseRedirect object.
    *
    * @param {{ scopes?: string[] }} [{ scopes }={}] - Custom scopes to override the default ones used by the provider.
+   * @param {{ isRedirection?: boolean }} [{ isRedirection }={}] - If true, the function returns an HttpResponseRedirect object. Otherwise, it returns an HttpResponseOK object.
    * @param {AuthParameters} [params] - Additional parameters (specific to the social provider).
-   * @returns {Promise<HttpResponseRedirect>} The HttpResponseRedirect object.
+   * @returns {Promise<HttpResponseOK | HttpResponseRedirect>} The HttpResponseOK or HttpResponseRedirect object.
    * @memberof AbstractProvider
    */
-  async redirect({ scopes }: { scopes?: string[] } = {}, params?: AuthParameters): Promise<HttpResponseRedirect> {
+  async createHttpResponseWithConsentPageUrl({ scopes, isRedirection }: { scopes?: string[], isRedirection?: boolean } = {}, params?: AuthParameters): Promise<HttpResponseOK | HttpResponseRedirect> {
     // Build the authorization URL.
     const url = new URL(this.authEndpoint);
     url.searchParams.set('response_type', 'code');
@@ -278,7 +283,7 @@ export abstract class AbstractProvider<AuthParameters extends ObjectType, UserIn
       url.searchParams.set('code_challenge_method', this.useCodeVerifierAsCodeChallenge ? 'plain' : 'S256');
     }
 
-    const redirectResponse = new HttpResponseRedirect(url.href);
+    const response = isRedirection ? new HttpResponseRedirect(url.href) : new HttpResponseOK({ consentPageUrl: url.href });
 
     const cookieOptions: CookieOptions = {
       httpOnly: true,
@@ -295,11 +300,11 @@ export abstract class AbstractProvider<AuthParameters extends ObjectType, UserIn
     // Add Code Challenge COOKIE for token request
     if (this.usePKCE) {
       // Encrypt this code_challenge cookie for security reasons
-      redirectResponse.setCookie(CODE_VERIFIER_COOKIE_NAME, this.encryptString(codeVerifier), cookieOptions);
+      response.setCookie(CODE_VERIFIER_COOKIE_NAME, this.encryptString(codeVerifier), cookieOptions);
     }
 
     // Return a redirection response with the state as cookie.
-    return redirectResponse
+    return response
       .setCookie(STATE_COOKIE_NAME, state, cookieOptions)
   }
 
@@ -373,13 +378,12 @@ export abstract class AbstractProvider<AuthParameters extends ObjectType, UserIn
    *
    * It retrieves the access token as well as the user information.
    *
-   * @template UserInfo
    * @param {Context} ctx - The request context.
    * @param {UserInfoParameters} [params] - Additional parameters to pass to the function.
    * @returns {Promise<UserInfoAndTokens<UserInfo>>} The access token and the user information
    * @memberof AbstractProvider
    */
-  async getUserInfo<UserInfo>(ctx: Context, params?: UserInfoParameters): Promise<UserInfoAndTokens<UserInfo>> {
+  async getUserInfo(ctx: Context, params?: UserInfoParameters): Promise<UserInfoAndTokens<UserInfo>> {
     const tokens = await this.getTokens(ctx);
     const userInfo = await this.getUserInfoFromTokens(tokens, params);
     return { userInfo, tokens };
